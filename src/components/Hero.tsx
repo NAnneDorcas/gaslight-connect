@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { useBlocks } from "@/lib/useBlocks";
 import heroImg from "@/assets/hero-cylinders.jpg";
 
-export const Hero = () => {
+export const Hero = ({ block }: { block?: any }) => {
   const blocks = useBlocks();
   const b = blocks["hero"];
 

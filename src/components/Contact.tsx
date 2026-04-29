@@ -1,85 +1,159 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Mail, MapPin, Phone } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { useBlocks } from "@/lib/useBlocks";
-import { useLang, t } from "@/lib/i18n";
 import { z } from "zod";
 
-type Field = { id: string; name: string; label: string; type: string; required: boolean; order: number };
+type Field = {
+  id: string;
+  name: string;
+  label: string;
+  type: string;
+  required: boolean;
+  sort_order?: number;
+};
 
-export const Contact = () => {
-  const { lang } = useLang();
-  const blocks = useBlocks();
-  const b = blocks["contact"];
-  const [fields, setFields] = useState<Field[]>([]);
+export const Contact = ({
+  block,
+  formFields = [],
+}: {
+  block?: any;
+  formFields?: Field[];
+}) => {
   const [values, setValues] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    supabase.from("form_fields").select("*").eq("language", lang).eq("form_key", "contact")
-      .order("order").then(({ data }) => setFields((data as any) ?? []));
-  }, [lang]);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+
     try {
-      // basic validation
-      for (const f of fields) {
-        if (f.required && !values[f.name]?.trim()) {
-          toast.error(`${f.label} *`);
-          setLoading(false); return;
+      for (const field of formFields) {
+        const value = values[field.name] ?? "";
+
+        if (field.required && !value.trim()) {
+          toast.error(`${field.label} is required`);
+          setLoading(false);
+          return;
         }
-        const v = values[f.name] ?? "";
-        if (v.length > 2000) { toast.error(`${f.label} too long`); setLoading(false); return; }
-        if (f.type === "email" && v && !z.string().email().safeParse(v).success) {
-          toast.error(`${f.label}: invalid email`); setLoading(false); return;
+
+        if (field.type === "email" && value && !z.string().email().safeParse(value).success) {
+          toast.error(`${field.label}: invalid email`);
+          setLoading(false);
+          return;
         }
       }
-      const { error } = await supabase.from("contact_submissions").insert({
-        form_key: "contact", language: lang, payload: values,
+
+      const response = await fetch("/.netlify/functions/submit-inquiry", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(values),
       });
-      if (error) throw error;
-      toast.success(t(lang, "sent"));
+
+      if (!response.ok) {
+        throw new Error("Submission failed");
+      }
+
+      toast.success("Thank you for your message. We will contact you shortly.");
       setValues({});
     } catch {
-      toast.error(t(lang, "error"));
-    } finally { setLoading(false); }
+      toast.error("Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <section id="contact" className="py-24">
       <div className="container-tight grid gap-12 lg:grid-cols-2">
         <div>
-          <p className="mb-3 text-sm font-medium uppercase tracking-wider text-[hsl(var(--accent))]">{b?.subtitle}</p>
-          <h2 className="text-3xl font-bold sm:text-4xl">{b?.title}</h2>
-          <p className="mt-6 text-muted-foreground">{b?.body}</p>
+          <p className="mb-3 text-sm font-medium uppercase tracking-wider text-[hsl(var(--accent))]">
+            {block?.subtitle}
+          </p>
+
+          <h2 className="text-3xl font-bold sm:text-4xl">
+            {block?.title || "Contact"}
+          </h2>
+
+          <p className="mt-6 text-muted-foreground">
+            {block?.body ||
+              "Contact our team to discuss your refrigerant gas requirements."}
+          </p>
 
           <ul className="mt-10 space-y-4 text-sm">
-            <li className="flex items-center gap-3"><Mail className="h-4 w-4 text-[hsl(var(--accent))]" /> trading@nordcool.eu</li>
-            <li className="flex items-center gap-3"><Phone className="h-4 w-4 text-[hsl(var(--accent))]" /> +372 600 7700</li>
-            <li className="flex items-center gap-3"><MapPin className="h-4 w-4 text-[hsl(var(--accent))]" /> Tallinn, Estonia · EU</li>
+            <li className="flex items-center gap-3">
+              <Mail className="h-4 w-4 text-[hsl(var(--accent))]" />
+              trading@nordcool.eu
+            </li>
+            <li className="flex items-center gap-3">
+              <Phone className="h-4 w-4 text-[hsl(var(--accent))]" />
+              +372 600 7700
+            </li>
+            <li className="flex items-center gap-3">
+              <MapPin className="h-4 w-4 text-[hsl(var(--accent))]" />
+              Tallinn, Estonia · EU
+            </li>
           </ul>
         </div>
 
-        <form onSubmit={onSubmit} className="space-y-4 rounded-2xl border border-border bg-card p-8 shadow-card">
-          {fields.map((f) => (
-            <div key={f.id} className="space-y-1.5">
-              <Label htmlFor={f.name}>{f.label}{f.required && " *"}</Label>
-              {f.type === "textarea" ? (
-                <Textarea id={f.name} value={values[f.name] ?? ""} onChange={(e) => setValues({ ...values, [f.name]: e.target.value })} rows={4} maxLength={2000} />
+        <form
+          onSubmit={onSubmit}
+          className="space-y-4 rounded-2xl border border-border bg-card p-8 shadow-card"
+        >
+          {formFields.map((field) => (
+            <div key={field.id} className="space-y-1.5">
+              <Label htmlFor={field.name}>
+                {field.label}
+                {field.required && " *"}
+              </Label>
+
+              {field.type === "textarea" ? (
+                <Textarea
+                  id={field.name}
+                  name={field.name}
+                  value={values[field.name] ?? ""}
+                  onChange={(e) =>
+                    setValues({ ...values, [field.name]: e.target.value })
+                  }
+                  rows={4}
+                  maxLength={2000}
+                />
+              ) : field.type === "checkbox" ? (
+                <input
+                  id={field.name}
+                  name={field.name}
+                  type="checkbox"
+                  checked={values[field.name] === "true"}
+                  onChange={(e) =>
+                    setValues({
+                      ...values,
+                      [field.name]: e.target.checked ? "true" : "",
+                    })
+                  }
+                  className="h-4 w-4"
+                />
               ) : (
-                <Input id={f.name} type={f.type} value={values[f.name] ?? ""} onChange={(e) => setValues({ ...values, [f.name]: e.target.value })} maxLength={500} />
+                <Input
+                  id={field.name}
+                  name={field.name}
+                  type={field.type}
+                  value={values[field.name] ?? ""}
+                  onChange={(e) =>
+                    setValues({ ...values, [field.name]: e.target.value })
+                  }
+                  maxLength={500}
+                />
               )}
             </div>
           ))}
+
           <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? "…" : t(lang, "send")}
+            {loading ? "…" : "Send Request"}
           </Button>
         </form>
       </div>

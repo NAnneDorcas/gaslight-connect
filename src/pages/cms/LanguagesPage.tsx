@@ -2,19 +2,42 @@ import { CrudTable } from "./CrudTable";
 
 const LanguagesPage = () => (
   <CrudTable
-    table="languages"
+    table="site_config"
     title="Languages"
-    description="Site languages available in the switcher."
+    description="Configure enabled languages and default language."
+
     columns={[
-      { key: "code", label: "Code" }, { key: "name", label: "Name" },
-      { key: "is_default", label: "Default" }, { key: "enabled", label: "Enabled" },
+      { key: "team_slug", label: "Team" },
+      { key: "default_language", label: "Default Language" },
+      { key: "enabled_languages", label: "Enabled Languages" },
+      { key: "updated_at", label: "Updated" },
     ]}
+
     fields={[
-      { name: "code", label: "Code (e.g. en, et)", required: true },
-      { name: "name", label: "Display name", required: true },
-      { name: "is_default", label: "Default language", type: "boolean" },
-      { name: "enabled", label: "Enabled", type: "boolean" },
+      {
+        name: "team_slug",
+        label: "Team Slug",
+        required: true,
+      },
+
+      {
+        name: "default_language",
+        label: "Default Language",
+        type: "select",
+        options: [
+          { value: "en", label: "English" },
+          { value: "et", label: "Eesti" },
+        ],
+        required: true,
+      },
+
+      {
+        name: "enabled_languages",
+        label: "Enabled Languages (JSON array)",
+        type: "textarea",
+      },
     ]}
   />
 );
+
 export default LanguagesPage;
